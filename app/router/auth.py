@@ -6,7 +6,6 @@ from app import schema
 from app.oauth2 import (
     create_access_token,
     create_refresh_token,
-    get_user_info,
     verify_refresh_token,
     verify_api_key,
 )

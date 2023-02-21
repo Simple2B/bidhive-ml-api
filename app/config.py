@@ -1,4 +1,12 @@
+import os
 from pydantic import BaseSettings
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+ABSOLUTE_DOCUMENTS_DIR_PATH = os.path.join(BASE_DIR, "uploaded_docs")
+
+TEST_DOCS_DIR = os.path.dirname("tests/test_files/")
 
 
 class Settings(BaseSettings):
