@@ -1,49 +1,21 @@
 import os
-from pathlib import Path
-from shutil import copyfileobj
+from multiprocessing.pool import ThreadPool
 
-from fastapi import APIRouter, UploadFile, Depends, File
+from fastapi import APIRouter, UploadFile, Depends, File, HTTPException
 from fastapi.responses import JSONResponse
-from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from starlette.status import HTTP_201_CREATED
 
 from app import schema
+from app.logger import log
 from app.oauth2 import get_user_info
-from app.config import ABSOLUTE_DOCUMENTS_DIR_PATH
+from app.config import ABSOLUTE_DOCUMENTS_DIR_PATH, settings
+from app.utils import create_s3_client
+from app.service import check_dir_exist, save_files_localy
 
 router = APIRouter(tags=["Documents"], prefix="/documents")
 
 
-def check_dir_exist(base_docs_dir: str, company_id: int) -> str:
-    dir_path: str = os.path.join(base_docs_dir, str(company_id))
-    if not Path(dir_path).exists():
-        try:
-            Path(dir_path).mkdir(parents=True, exist_ok=True)
-        except (FileNotFoundError, OSError):
-            return JSONResponse(
-                status_code=HTTP_400_BAD_REQUEST,
-                content="There was a problem with creating directory for your company",
-            )
-    return dir_path
-
-
-def save_files_localy(dir_path: str, files: list[UploadFile]):
-    for file in files:
-        try:
-            with open(
-                os.path.join(dir_path, file.filename),
-                "wb",
-            ) as f:
-                copyfileobj(file.file, f)
-        except Exception:
-            return JSONResponse(
-                status_code=HTTP_400_BAD_REQUEST,
-                content=f"There was a problem with file {file.filename}",
-            )
-        finally:
-            file.file.close()
-
-
-@router.post("/upload/")
+@router.post("/upload-localy/")
 async def upload_documents(
     files: list[UploadFile] = File(...),
     user_info: schema.UserInfo = Depends(get_user_info),
@@ -54,5 +26,37 @@ async def upload_documents(
 
     return JSONResponse(
         status_code=HTTP_201_CREATED,
-        content={"message": "Files were successfully uploaded"},
+        content={"message": "Files were successfully uploaded localy"},
+    )
+
+
+@router.post("/upload-s3/")
+async def upload_docs_s3(
+    files: list[UploadFile] = File(...),
+    user_info: schema.UserInfo = Depends(get_user_info),
+):
+    s3_client = create_s3_client()
+
+    def upload_s3(file: UploadFile):
+        try:
+            upload_name = os.path.join(str(user_info.company_id), file.filename)
+            s3_client.upload_fileobj(
+                file.file, Bucket=settings.S3_BUCKET_NAME, Key=upload_name
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=400, detail=f"File uploading failed {file.filename}"
+            )
+        finally:
+            file.file.close()
+
+    pool = ThreadPool(processes=len(files) * 2)
+
+    pool.map_async(upload_s3, files)
+
+    log(
+        log.INFO,
+        "Files were uploaded to S3 bucket [%s] for company [%d]",
+        settings.S3_BUCKET_NAME,
+        user_info.company_id,
     )

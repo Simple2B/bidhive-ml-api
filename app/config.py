@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 3
     BIDHIVE_API_SECRET_KEY: str = "<key_example_12345>"
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_REGION: str | None = None
+    S3_BUCKET_NAME: str = "<None>"
 
     class Config:
         env_file = ".env"
