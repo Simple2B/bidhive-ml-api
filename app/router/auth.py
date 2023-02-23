@@ -1,4 +1,3 @@
-# from shutil import unregister_archive_format
 from fastapi import APIRouter, HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
 
