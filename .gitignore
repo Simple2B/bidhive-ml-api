@@ -132,3 +132,6 @@ dmypy.json
 
 # App
 uploaded_docs
+
+# VSCode
+.vscode

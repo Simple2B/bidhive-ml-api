@@ -33,25 +33,3 @@ def create_s3_resource():
     except Exception as err:
         log(log.ERROR, "S3 bucket resource creation failed [%s]", err)
         raise
-
-
-def fast_s3_upload(session, bucketname: str, s3_dir, files, workers=20):
-    botocore_config = botocore.config.Config(max_pool_connections=workers)
-    s3_client = session.client(**S3_CONNECT_PARAMS, config=botocore_config)
-    transfer_config = s3_transfer.TransferConfig(
-        use_threads=True,
-        max_concurrency=workers,
-    )
-    s3t = s3_transfer.create_transfer_manager(client=s3_client, config=transfer_config)
-    for file in files:
-        try:
-            s3t.upload(
-                fileobj=file.file,
-                bucket=bucketname,
-                key=s3_dir,
-            )
-        except Exception as err:
-            raise err
-        finally:
-            file.file.close()
-    s3t.shutdown()

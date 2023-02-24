@@ -28,6 +28,22 @@ services:
     networks:
       - bidhive-ml-api
 
+  db:
+    image: postgres:12
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USERNAME}
+    ports:
+      - 127.0.0.1:${DATABASE_LOCAL_PORT}:5432
+    restart: unless-stopped
+    networks:
+      - bidhive-ml-api
+    env_file:
+      - .env
+
 volumes:
   db_data:
 

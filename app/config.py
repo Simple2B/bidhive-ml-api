@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str | None = None
     AWS_REGION: str | None = None
     S3_BUCKET_NAME: str = "<None>"
+    DATABASE_URI: str = ""
 
     class Config:
         env_file = ".env"

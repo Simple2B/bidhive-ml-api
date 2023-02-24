@@ -38,30 +38,6 @@ async def upload_docs_s3(
     files: list[UploadFile] = File(...),
     user_info: schema.UserInfo = Depends(get_user_info),
 ):
-    # s3_client = create_s3_client()
-
-    # def upload_s3(file: UploadFile):
-    #     try:
-    #         upload_name = os.path.join(str(user_info.company_id), file.filename)
-    #         s3_client.upload_fileobj(
-    #             file.file, Bucket=settings.S3_BUCKET_NAME, Key=upload_name
-    #         )
-    #     except Exception:
-    #         raise HTTPException(
-    #             status_code=400, detail=f"File uploading failed {file.filename}"
-    #         )
-    #     finally:
-    #         file.file.close()
-
-    # pool = ThreadPool(processes=len(files) * 2)
-
-    # Just classic uploading through the pools - block execution until files will be uploaded
-    # pool.map(upload_s3, files)
-
-    # Async uploading through the pools: doesn't block server but returns response before all files will be uploaded
-    # pool.async_map(upload_s3, files)
-
-    # Uploading through the aioboto client: doesn't block server waits for the end of uploading
     session = aioboto3.Session()
 
     async with session.client(**S3_CONNECT_PARAMS) as s3:
@@ -77,11 +53,6 @@ async def upload_docs_s3(
                 )
             finally:
                 file.file.close()
-
-    # Using s3.TransferManager - doesn't upload at all
-    # s3_dir = f"{user_info.company_id}/"
-
-    # fast_s3_upload(boto3.Session(), settings.S3_BUCKET_NAME, s3_dir, files)
 
     log(
         log.INFO,
