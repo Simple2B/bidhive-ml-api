@@ -95,11 +95,9 @@ def test_save_file_info(db: Session):
     with NamedTemporaryFile() as temp_file:
         test_file = UploadFile(temp_file.name, temp_file)
         test_hash = "hjkwhiu94y89o9he91uhd01u0"
-        save_file_info(db, test_hash, test_file, TEST_DATA.company_id)
+        file_id = save_file_info(db, test_hash, test_file, TEST_DATA.company_id)
 
-        db_info = (
-            db.query(model.UploadedFile).filter_by(filename=test_file.filename).one()
-        )
+        db_info = db.query(model.UploadedFile).get(file_id)
 
         assert db_info and db_info.hash == test_hash
 

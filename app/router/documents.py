@@ -18,6 +18,7 @@ from app.service import (
     save_file_info,
 )
 from app.database import get_db
+from app.tasks import parse_file
 
 router = APIRouter(tags=["Documents"], prefix="/documents")
 
@@ -75,7 +76,10 @@ async def upload_docs_s3(
                 )
 
                 # Save meta information about file to db
-                save_file_info(db, file_hash, file, user_info.company_id)
+                file_id = save_file_info(db, file_hash, file, user_info.company_id)
+
+                # Start parsing process in Celery
+                parse_file.delay(file_id)
             except Exception as e:
                 raise HTTPException(
                     status_code=400,

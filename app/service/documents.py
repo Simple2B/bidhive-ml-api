@@ -71,7 +71,9 @@ def check_file_hash(
     return (file_hash, already_exist)
 
 
-def save_file_info(db: Session, file_hash: str, file: UploadFile, company_id: int):
+def save_file_info(
+    db: Session, file_hash: str, file: UploadFile, company_id: int
+) -> int:
     uploaded_file = m.UploadedFile(
         filename=file.filename,
         company_id=company_id,
@@ -79,3 +81,6 @@ def save_file_info(db: Session, file_hash: str, file: UploadFile, company_id: in
     )
     db.add(uploaded_file)
     db.commit()
+    db.refresh(uploaded_file)
+
+    return uploaded_file.id
