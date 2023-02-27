@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
-from starlette.status import HTTP_403_FORBIDDEN
+from fastapi import APIRouter, Depends
 
 from app import schema
 from app.oauth2 import get_user_info

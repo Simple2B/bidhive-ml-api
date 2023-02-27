@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-from starlette.status import HTTP_201_CREATED
 
 from app import schema
 from app.oauth2 import create_access_token

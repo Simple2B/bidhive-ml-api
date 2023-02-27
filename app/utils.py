@@ -1,8 +1,5 @@
-import os
 import boto3
-import botocore
-import boto3.s3.transfer as s3_transfer
-import aioboto3
+from pathlib import Path
 
 from app.config import settings
 from app.logger import log
@@ -33,3 +30,9 @@ def create_s3_resource():
     except Exception as err:
         log(log.ERROR, "S3 bucket resource creation failed [%s]", err)
         raise
+
+
+def check_file_format(filename: str, format: str) -> bool:
+    file_format = Path(filename).suffix
+
+    return bool(file_format == format)
