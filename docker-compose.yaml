@@ -23,7 +23,7 @@ services:
     image: redis
     restart: unless-stopped
     ports:
-      - 127.0.0.1:6379:6379
+      - 127.0.0.1:6377:6379
     stdin_open: true
     networks:
       - bidhive-ml-api
