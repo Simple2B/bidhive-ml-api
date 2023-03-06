@@ -17,6 +17,7 @@ class TokenSet(AccessToken):
 class UserInfo(BaseModel):
     user_id: int
     company_id: int
+    is_admin: bool
 
 
 class TokenData(UserInfo):

@@ -15,7 +15,7 @@ from app.utils import check_file_format  # create_s3_resource
 from app.service import check_file_hash, save_file_info
 
 
-TEST_DATA = schema.UserInfo(user_id=56, company_id=78)
+TEST_DATA = schema.UserInfo(user_id=56, company_id=78, is_admin=True)
 
 
 def test_docs_local_upload(client: TestClient):

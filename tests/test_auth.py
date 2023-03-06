@@ -12,7 +12,7 @@ from app import schema
 from app.config import settings
 
 
-TEST_DATA = schema.UserInfo(user_id=56, company_id=78)
+TEST_DATA = schema.UserInfo(user_id=56, company_id=78, is_admin=True)
 
 
 def test_access_token():
@@ -22,6 +22,7 @@ def test_access_token():
     assert user_info
     assert user_info.company_id == TEST_DATA.company_id
     assert user_info.user_id == TEST_DATA.user_id
+    assert user_info.is_admin == TEST_DATA.is_admin
 
 
 def test_create_token(client: TestClient):
@@ -52,10 +53,7 @@ def test_get_user_info():
 
 
 def test_refresh_token(client: TestClient):
-    user_info = schema.UserInfo(
-        user_id=TEST_DATA.user_id, company_id=TEST_DATA.company_id
-    )
-    refresh_token = create_refresh_token(user_info)
+    refresh_token = create_refresh_token(TEST_DATA)
 
     result = client.post(
         "/auth/refresh-token/", json={"refresh_token": f"{refresh_token}"}
@@ -65,5 +63,6 @@ def test_refresh_token(client: TestClient):
     new_access_token = schema.AccessToken.parse_obj(result.json())
     decoded_user_info = verify_access_token(new_access_token.access_token)
 
-    assert decoded_user_info.user_id == user_info.user_id
-    assert decoded_user_info.company_id == user_info.company_id
+    assert decoded_user_info.user_id == TEST_DATA.user_id
+    assert decoded_user_info.company_id == TEST_DATA.company_id
+    assert decoded_user_info.is_admin == TEST_DATA.is_admin

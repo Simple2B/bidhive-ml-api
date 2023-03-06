@@ -4,7 +4,7 @@ from app import schema
 from app.oauth2 import create_access_token
 
 
-TEST_DATA = schema.UserInfo(user_id=12, company_id=56)
+TEST_DATA = schema.UserInfo(user_id=12, company_id=87, is_admin=True)
 
 
 def test_search_prompt(client: TestClient):

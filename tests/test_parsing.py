@@ -9,7 +9,7 @@ from app import schema as s
 from app.service.parsing import parse_text
 
 
-TEST_DATA = s.UserInfo(user_id=12, company_id=14)
+TEST_DATA = s.UserInfo(user_id=12, company_id=87, is_admin=True)
 
 
 @mock_s3

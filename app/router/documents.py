@@ -8,7 +8,7 @@ from starlette.status import HTTP_201_CREATED
 
 from app import schema
 from app.logger import log
-from app.oauth2 import get_user_info
+from app.oauth2 import get_admin_info
 from app.config import ABSOLUTE_DOCUMENTS_DIR_PATH, settings
 from app.utils import S3_CONNECT_PARAMS, check_file_format
 from app.service import (
@@ -26,7 +26,7 @@ router = APIRouter(tags=["Documents"], prefix="/documents")
 @router.post("/upload-localy/")
 async def upload_documents(
     files: list[UploadFile] = File(...),
-    user_info: schema.UserInfo = Depends(get_user_info),
+    user_info: schema.UserInfo = Depends(get_admin_info),
 ):
     dir_path = check_dir_exist(ABSOLUTE_DOCUMENTS_DIR_PATH, user_info.company_id)
 
@@ -41,7 +41,7 @@ async def upload_documents(
 @router.post("/upload-s3/")
 async def upload_docs_s3(
     files: list[UploadFile] = File(...),
-    user_info: schema.UserInfo = Depends(get_user_info),
+    user_info: schema.UserInfo = Depends(get_admin_info),
     db: Session = Depends(get_db),
 ):
     """
