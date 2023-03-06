@@ -4,4 +4,4 @@ from .documents import (
     check_file_hash,
     save_file_info,
 )
-from .parsing import parse_document
+from .parsing import parse_document, parse_local_document

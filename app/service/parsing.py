@@ -4,40 +4,21 @@ import pandas as pd
 from tempfile import NamedTemporaryFile
 
 from app.logger import log
-from app.utils import create_or_retriev_csv, to_csv_on_s3, create_s3_resource
+from app.utils import get_csv_dataset, to_csv_on_s3, create_s3fs
 from app.config import settings
+from app import model as m
 
 
-my_tags = [("<q[0-9]*>", "</q[0-9]*>"), ("<a[0-9]*>", "</a[0-9]*>")]
+TAGS = [("<q[0-9]*>", "</q[0-9]*>"), ("<a[0-9]*>", "</a[0-9]*>")]
+COLUMNS = ["question", "answer"]
 
 
-def parse_document(file_data):
-    """
-    This function retrieve unprocessed document from S3 bucket, parse it and
-    append new information to dataset.csv of company
-
-    Args:
-        file_data (_type_): the instance from model UploadedFile
-    """
-    s3_resource = create_s3_resource()
-    file = s3_resource.Object(
-        bucket_name=f"{settings.S3_BUCKET_NAME}",
-        key=f"{file_data.company_id}/{file_data.filename}",
-    )
-
-    with NamedTemporaryFile() as tmp:
-        file.download_fileobj(tmp)
-        doc = docx2txt.process(tmp.name)
-
-    file.delete()
-
-    df = create_or_retriev_csv(file_data.company_id)
-
+def parse_text(text: str) -> pd.DataFrame:
     dict_with_res = dict()
 
-    for open_tag, close_tag in my_tags:
+    for open_tag, close_tag in TAGS:
         search_str = f"(?:{open_tag}.*?{close_tag})"
-        q_and_a = re.finditer(search_str, doc, flags=re.DOTALL)
+        q_and_a = re.finditer(search_str, text, flags=re.DOTALL)
 
         for val in q_and_a:
             value = val.group()
@@ -58,12 +39,55 @@ def parse_document(file_data):
                 except Exception as err:
                     log(log.ERROR, "The error occured: [%s]", err)
 
-    results_series = pd.DataFrame(
-        data=dict_with_res.values(), columns=["question", "answer"]
-    )
+    results_df = pd.DataFrame(data=dict_with_res.values(), columns=COLUMNS)
+    return results_df
 
-    new_df = pd.concat([df, results_series])
 
-    to_csv_on_s3(new_df, file_data.company_id)
+def parse_document(file_data: m.UploadedFile):
+    """
+    This function retrieve unprocessed document from S3 bucket, parse it and
+    append new information to dataset.csv of company
+
+    Args:
+        file_data (m.UploadedFile): data about the file from db
+    """
+    s3_fs = create_s3fs()
+
+    with NamedTemporaryFile() as tmp:
+        with s3_fs.open(
+            f"{settings.S3_BUCKET_NAME}/{file_data.company_id}/{file_data.filename}",
+            mode="rb",
+        ) as document:
+            tmp.write(document.read())
+            doc = docx2txt.process(tmp.name)
+
+    s3_fs.rm(f"{settings.S3_BUCKET_NAME}/{file_data.company_id}/{file_data.filename}")
+
+    df = get_csv_dataset(s3_fs, file_data.company_id, COLUMNS)
+
+    results_df = parse_text(doc)
+
+    new_df = pd.concat([df, results_df])
+
+    to_csv_on_s3(s3_fs, new_df, file_data.company_id)
 
     log(log.INFO, "Parsing succeed for [%s]", file_data.filename)
+
+
+# To test different parsing algorithms
+def parse_local_document():
+    """Just a function for local testing of documents parsing"""
+    filename = "app/uploaded_docs/Expression of Interest Form - Tier 3 Weight Management Service.docx"
+    doc = docx2txt.process(filename)
+
+    df = pd.DataFrame(columns=COLUMNS)
+
+    results_df = parse_text(doc)
+
+    new_df = pd.concat([df, results_df])
+
+    new_df.to_csv(
+        "/home/danil/simple2b/bidhive/bidhive-ml-api/app/uploaded_docs/dataset.csv"
+    )
+
+    log(log.INFO, "Parsing succeed")

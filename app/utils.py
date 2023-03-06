@@ -31,7 +31,16 @@ def create_s3_resource():
         return resource
     except Exception as err:
         log(log.ERROR, "S3 bucket resource creation failed [%s]", err)
-        raise
+
+
+def create_s3fs():
+    try:
+        s3_fs = s3fs.S3FileSystem(
+            key=settings.AWS_ACCESS_KEY_ID, secret=settings.AWS_SECRET_ACCESS_KEY
+        )
+        return s3_fs
+    except Exception as err:
+        log(log.ERROR, "S3 bucket filesystem creation failed [%s]", err)
 
 
 def check_file_format(filename: str, format: str) -> bool:
@@ -40,27 +49,33 @@ def check_file_format(filename: str, format: str) -> bool:
     return bool(file_format == format)
 
 
-def to_csv_on_s3(df: pd.DataFrame, company_id):
-    s3_fs = s3fs.S3FileSystem(
-        key=settings.AWS_ACCESS_KEY_ID, secret=settings.AWS_SECRET_ACCESS_KEY
-    )
+def to_csv_on_s3(s3_fs: s3fs.S3FileSystem, df: pd.DataFrame, company_id: int):
+    try:
+        df.to_csv(
+            s3_fs.open(
+                f"{settings.S3_BUCKET_NAME}/{company_id}/dataset.csv", mode="wb"
+            ),
+            index=True,
+        )
+    except Exception as err:
+        log(
+            log.ERROR,
+            "Loading of dataset.csv on S3 bucket failed for company [%d]: [%s]",
+            company_id,
+            err,
+        )
+        raise err
 
-    df.to_csv(
-        s3_fs.open(f"{settings.S3_BUCKET_NAME}/{company_id}/dataset.csv", mode="wb"),
-        index=True,
-    )
 
-
-def create_or_retriev_csv(company_id: int):
-    s3_fs = s3fs.S3FileSystem(
-        key=settings.AWS_ACCESS_KEY_ID, secret=settings.AWS_SECRET_ACCESS_KEY
-    )
+def get_csv_dataset(
+    s3_fs: s3fs.S3FileSystem, company_id: int, columns: list[str]
+) -> pd.DataFrame:
     csv_exist = s3_fs.exists(f"{settings.S3_BUCKET_NAME}/{company_id}/dataset.csv")
 
     if not csv_exist:
         # Create new company dataset.csv file on s3
         # Maybe it is better to use s3_f3.open_async()
-        df = pd.DataFrame(columns=["question", "answer"])
+        df = pd.DataFrame(columns=columns)
         df.to_csv(
             s3_fs.open(f"{settings.S3_BUCKET_NAME}/{company_id}/dataset.csv", mode="wb")
         )
