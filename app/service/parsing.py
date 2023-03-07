@@ -1,3 +1,4 @@
+import os
 import re
 import docx2txt
 import pandas as pd
@@ -10,10 +11,10 @@ from app import model as m
 
 
 TAGS = [("<q[0-9]*>", "</q[0-9]*>"), ("<a[0-9]*>", "</a[0-9]*>")]
-COLUMNS = ["question", "answer"]
+COLUMNS = ["question", "answer", "file_info_id"]
 
 
-def parse_text(text: str) -> pd.DataFrame:
+def parse_text(file_info_id: int, text: str) -> pd.DataFrame:
     dict_with_res = dict()
 
     for open_tag, close_tag in TAGS:
@@ -28,13 +29,14 @@ def parse_text(text: str) -> pd.DataFrame:
             ).group(1)
 
             if tag_name.startswith("q"):
-                dict_with_res[tag_name] = (str_from_value, None)
+                dict_with_res[tag_name] = (str_from_value, None, file_info_id)
             elif tag_name.startswith("a"):
                 try:
                     suitable_question = f"q{tag_name[1:]}"
                     dict_with_res[suitable_question] = (
                         dict_with_res[suitable_question][0],
                         str_from_value,
+                        dict_with_res[suitable_question][2],
                     )
                 except Exception as err:
                     log(log.ERROR, "The error occured: [%s]", err)
@@ -51,21 +53,19 @@ def parse_document(file_data: m.UploadedFile):
     Args:
         file_data (m.UploadedFile): data about the file from db
     """
+
+    # Create S3FileSystem connection
     s3_fs = create_s3fs()
+    s3_path = os.path.join(settings.S3_BUCKET_NAME, file_data.s3_relative_path)
 
-    with NamedTemporaryFile() as tmp:
-        with s3_fs.open(
-            f"{settings.S3_BUCKET_NAME}/{file_data.company_id}/{file_data.filename}",
-            mode="rb",
-        ) as document:
-            tmp.write(document.read())
-            doc = docx2txt.process(tmp.name)
+    with s3_fs.open(s3_path, mode="rb") as document:
+        doc = docx2txt.process(document)
 
-    s3_fs.rm(f"{settings.S3_BUCKET_NAME}/{file_data.company_id}/{file_data.filename}")
+    s3_fs.rm(s3_path)
 
     df = get_csv_dataset(s3_fs, file_data.company_id, COLUMNS)
 
-    results_df = parse_text(doc)
+    results_df = parse_text(file_data.id, doc)
 
     new_df = pd.concat([df, results_df])
 

@@ -13,6 +13,11 @@ class UploadedFile(Base):
     uploaded_at = Column(DateTime(), default=datetime.now)
     hash = Column(Text, nullable=False)
     processed = Column(Boolean, default=False)
+    contract_title = Column(String(length=256), nullable=True)
+    customer_name = Column(String(length=256), nullable=True)
+    contract_value = Column(Integer, nullable=True)
+    currency_type = Column(String(length=32), default="USD", nullable=False)
+    s3_relative_path = Column(String(length=256), nullable=False)
 
     def __repr__(self):
         return f"<{self.id}: {self.filename}>"

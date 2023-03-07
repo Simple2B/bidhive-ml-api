@@ -13,11 +13,25 @@ def test_task():
 
 @shared_task(name="parse_file")
 def parse_file(file_id: int):
+    """
+    Celery task for parsing process of the uploaded file
+
+    Args:
+        file_id (int): id of record with file info in db
+    """
+
+    # Retrieve record with file information from db
     db_iter = get_db()
     db = next(db_iter)
     file_data = db.query(m.UploadedFile).get(file_id)
 
-    parse_document(file_data)
+    log(log.DEBUG, "Celery started parsing file [%s]", file_data.filename)
 
+    # Parse file if it wasn't processed previously
+    if not file_data.processed:
+        parse_document(file_data)
+
+    # Mark file as processed
     file_data.processed = True
     db.commit()
+    log(log.DEBUG, "Celery succesfully processed file [%s]", file_data.filename)

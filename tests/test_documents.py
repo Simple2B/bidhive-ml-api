@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -10,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from app import schema, model
 from app.oauth2 import create_access_token
-from app.config import TEST_DOCS_DIR, ABSOLUTE_DOCUMENTS_DIR_PATH  # settings
-from app.utils import check_file_format  # create_s3_resource
+from app.config import TEST_DOCS_DIR, ABSOLUTE_DOCUMENTS_DIR_PATH, settings
+from app.utils import check_file_format
 from app.service import check_file_hash, save_file_info
 
 
@@ -92,14 +93,25 @@ def test_check_file_format():
 
 
 def test_save_file_info(db: Session):
-    with NamedTemporaryFile() as temp_file:
-        test_file = UploadFile(temp_file.name, temp_file)
-        test_hash = "hjkwhiu94y89o9he91uhd01u0"
-        file_id = save_file_info(db, test_hash, test_file, TEST_DATA.company_id)
+    test_hash = "hjkwhiu94y89o9he91uhd01u0"
+    test_s3_path = os.path.join(
+        settings.S3_BUCKET_NAME, str(TEST_DATA.company_id), "testname"
+    )
+    file_info = schema.FileDbInfo(
+        file_hash=test_hash,
+        filename="Testname",
+        company_id=TEST_DATA.company_id,
+        contract_title="Test title",
+        customer_name="Test customer",
+        contract_value=1000000,
+        currency_type="USD",
+        s3_relative_path=test_s3_path,
+    )
+    file_id = save_file_info(db, file_info)
 
-        db_info = db.query(model.UploadedFile).get(file_id)
+    db_info = db.query(model.UploadedFile).get(file_id)
 
-        assert db_info and db_info.hash == test_hash
+    assert db_info and db_info.hash == test_hash
 
 
 def test_check_file_hash(db: Session):
@@ -112,7 +124,21 @@ def test_check_file_hash(db: Session):
         test_file_hash, exist = check_file_hash(db, test_file, TEST_DATA.company_id)
         assert test_file_hash and not exist
 
-        save_file_info(db, test_file_hash, test_file, TEST_DATA.company_id)
+        test_s3_path = os.path.join(
+            settings.S3_BUCKET_NAME, str(TEST_DATA.company_id), "testname"
+        )
+
+        file_info = schema.FileDbInfo(
+            file_hash=test_file_hash,
+            filename=test_file.filename,
+            company_id=TEST_DATA.company_id,
+            contract_title="Test title",
+            customer_name="Test customer",
+            contract_value=1000000,
+            currency_type="USD",
+            s3_relative_path=test_s3_path,
+        )
+        save_file_info(db, file_info)
 
         # Try to get hash in second time
         new_hash, exist = check_file_hash(db, test_file, TEST_DATA.company_id)

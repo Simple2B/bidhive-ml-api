@@ -41,6 +41,6 @@ def test_parse_text():
     filename = "tests/test_files/Expression of Interest Form - Tier 3 Weight Management Service.docx"
     doc = docx2txt.process(filename)
 
-    result_df = parse_text(doc)
+    result_df = parse_text(12, doc)
     assert not result_df.empty
     assert isinstance(result_df, pd.DataFrame)

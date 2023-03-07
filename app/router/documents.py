@@ -1,10 +1,11 @@
 import os
 import aioboto3
+import uuid
 from sqlalchemy.orm import Session
+from botocore.exceptions import ClientError
 
-from fastapi import APIRouter, UploadFile, Depends, File, HTTPException
+from fastapi import APIRouter, UploadFile, Depends, File, HTTPException, Form, status
 from fastapi.responses import JSONResponse
-from starlette.status import HTTP_201_CREATED
 
 from app import schema
 from app.logger import log
@@ -33,13 +34,17 @@ async def upload_documents(
     save_files_localy(dir_path, files)
 
     return JSONResponse(
-        status_code=HTTP_201_CREATED,
+        status_code=status.HTTP_201_CREATED,
         content={"message": "Files were successfully uploaded localy"},
     )
 
 
 @router.post("/upload-s3/")
 async def upload_docs_s3(
+    contract_title: str | None = Form(default=None),
+    customer_name: str | None = Form(default=None),
+    contract_value: int | None = Form(default=None),
+    currency_type: str = Form(default="USD"),
     files: list[UploadFile] = File(...),
     user_info: schema.UserInfo = Depends(get_admin_info),
     db: Session = Depends(get_db),
@@ -57,7 +62,7 @@ async def upload_docs_s3(
     """
     session = aioboto3.Session()
 
-    async with session.client(**S3_CONNECT_PARAMS) as s3:
+    async with session.client(**S3_CONNECT_PARAMS.dict()) as s3:
         for file in files:
             try:
                 # Check that file has .docx format
@@ -70,19 +75,44 @@ async def upload_docs_s3(
                     continue
 
                 # Upload file to S3 bucket
-                upload_name = os.path.join(str(user_info.company_id), file.filename)
+                # Use uuid as filename on s3 to be sure, that it is unique
+                file_uuid = uuid.uuid4().hex
+                s3_relative_path = os.path.join(str(user_info.company_id), file_uuid)
                 await s3.upload_fileobj(
-                    file.file, Bucket=settings.S3_BUCKET_NAME, Key=upload_name
+                    file.file, Bucket=settings.S3_BUCKET_NAME, Key=s3_relative_path
+                )
+
+                log(
+                    log.DEBUG,
+                    "File [%s] with uuid [%s] successfully uploaded to S3",
+                    file.filename,
+                    file_uuid,
                 )
 
                 # Save meta information about file to db
-                file_id = save_file_info(db, file_hash, file, user_info.company_id)
+                file_info = schema.FileDbInfo(
+                    file_hash=file_hash,
+                    filename=file.filename,
+                    company_id=user_info.company_id,
+                    contract_title=contract_title,
+                    customer_name=customer_name,
+                    contract_value=contract_value,
+                    currency_type=currency_type,
+                    s3_relative_path=s3_relative_path,
+                )
+                file_id = save_file_info(db, file_info)
 
                 # Start parsing process in Celery
                 parse_file.delay(file_id)
-            except Exception as e:
+            except (ValueError, ClientError) as e:
+                log(
+                    log.ERROR,
+                    "File uploading failed [%s] error: [%s]",
+                    file.filename,
+                    e,
+                )
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"File uploading failed {file.filename} error: {e}",
                 )
             finally:
