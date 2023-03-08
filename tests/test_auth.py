@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.datastructures import Headers
@@ -7,12 +8,13 @@ from app.oauth2 import (
     verify_access_token,
     get_user_info,
     create_refresh_token,
+    get_admin_info,
 )
 from app import schema
 from app.config import settings
 
 
-TEST_DATA = schema.UserInfo(user_id=56, company_id=78, is_admin=True)
+TEST_DATA = schema.UserInfo(user_id=56, company_id=78, is_admin=False)
 
 
 def test_access_token():
@@ -50,6 +52,34 @@ def test_get_user_info():
     user_info = get_user_info(request)
     assert user_info.company_id == TEST_DATA.company_id
     assert user_info.user_id == TEST_DATA.user_id
+
+
+def test_get_admin_info():
+    # Check behavior for get_admin_info with is_admin=False
+    token = create_access_token(TEST_DATA)
+    headers = Headers(
+        {
+            "Authorization": f"JWT {token}",
+        }
+    )
+    request = Request(scope={"method": "GET", "type": "http", "headers": headers.raw})
+    try:
+        admin_info = get_admin_info(request)
+    except HTTPException as err:
+        assert err.status_code == status.HTTP_403_FORBIDDEN
+
+    # Check behavior with is_admin=True
+    TEST_DATA.is_admin = True
+    token = create_access_token(TEST_DATA)
+    headers = Headers(
+        {
+            "Authorization": f"JWT {token}",
+        }
+    )
+    request = Request(scope={"method": "GET", "type": "http", "headers": headers.raw})
+    admin_info = get_admin_info(request)
+    assert admin_info.company_id == TEST_DATA.company_id
+    assert admin_info.user_id == TEST_DATA.user_id
 
 
 def test_refresh_token(client: TestClient):

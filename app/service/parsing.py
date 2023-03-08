@@ -2,10 +2,10 @@ import os
 import re
 import docx2txt
 import pandas as pd
-from tempfile import NamedTemporaryFile
+from s3fs import S3FileSystem
 
 from app.logger import log
-from app.utils import get_csv_dataset, to_csv_on_s3, create_s3fs
+from app.utils import get_csv_dataset, to_csv_on_s3
 from app.config import settings
 from app import model as m
 
@@ -45,7 +45,7 @@ def parse_text(file_info_id: int, text: str) -> pd.DataFrame:
     return results_df
 
 
-def parse_document(file_data: m.UploadedFile):
+def parse_document(file_data: m.UploadedFile, s3_fs: S3FileSystem):
     """
     This function retrieve unprocessed document from S3 bucket, parse it and
     append new information to dataset.csv of company
@@ -55,20 +55,14 @@ def parse_document(file_data: m.UploadedFile):
     """
 
     # Create S3FileSystem connection
-    s3_fs = create_s3fs()
     s3_path = os.path.join(settings.S3_BUCKET_NAME, file_data.s3_relative_path)
-
     with s3_fs.open(s3_path, mode="rb") as document:
         doc = docx2txt.process(document)
-
     s3_fs.rm(s3_path)
 
     df = get_csv_dataset(s3_fs, file_data.company_id, COLUMNS)
-
     results_df = parse_text(file_data.id, doc)
-
     new_df = pd.concat([df, results_df])
-
     to_csv_on_s3(s3_fs, new_df, file_data.company_id)
 
     log(log.INFO, "Parsing succeed for [%s]", file_data.filename)

@@ -4,6 +4,7 @@ from app import model as m
 from app.logger import log
 from app.database import get_db
 from app.service import parse_document, parse_local_document
+from app.utils import create_s3fs
 
 
 @shared_task(name="test_task")
@@ -27,9 +28,11 @@ def parse_file(file_id: int):
 
     log(log.DEBUG, "Celery started parsing file [%s]", file_data.filename)
 
+    s3_fs = create_s3fs()
+
     # Parse file if it wasn't processed previously
     if not file_data.processed:
-        parse_document(file_data)
+        parse_document(file_data, s3_fs)
 
     # Mark file as processed
     file_data.processed = True

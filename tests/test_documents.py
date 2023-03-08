@@ -1,4 +1,5 @@
 import os
+import pytest
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -9,14 +10,14 @@ from fastapi.testclient import TestClient
 from starlette.status import HTTP_201_CREATED
 from sqlalchemy.orm import Session
 
-from app import schema, model
+from app import schema, model as m
 from app.oauth2 import create_access_token
 from app.config import TEST_DOCS_DIR, ABSOLUTE_DOCUMENTS_DIR_PATH, settings
-from app.utils import check_file_format
+from app.utils import check_file_format, create_s3_resource
 from app.service import check_file_hash, save_file_info
 
 
-TEST_DATA = schema.UserInfo(user_id=56, company_id=78, is_admin=True)
+TEST_DATA = schema.UserInfo(user_id=56, company_id=0, is_admin=True)
 
 
 def test_docs_local_upload(client: TestClient):
@@ -49,34 +50,38 @@ def test_docs_local_upload(client: TestClient):
     company_dir.rmdir()
 
 
-# Moto doesn't work with aioboto3, so this test can be used only for uploadin through the boto3
-# @mock_s3
-# def test_docs_s3_upload(client: TestClient):
-#     # Create fake bucket on mocked client
-#     s3_resource = create_s3_resource()
-#     bucket = s3_resource.create_bucket(
-#         Bucket=settings.S3_BUCKET_NAME,
-#         CreateBucketConfiguration={"LocationConstraint": settings.AWS_REGION},
-#     )
+# NOTE: this test works on the real s3 bucket!!!
+# NOTE: don't run this test with active Celery and Rabbitmq (to prevent receiving of parsing task by Celery)
+# NOTE: please be careful with TEST_DATA.company id if you use this test on bucket with real data
+@pytest.mark.skip()
+def test_docs_s3_upload(client: TestClient, db: Session):
+    # Create fake bucket on mocked client
+    s3_resource = create_s3_resource()
+    bucket = s3_resource.Bucket(settings.S3_BUCKET_NAME)
 
-#     token = create_access_token(TEST_DATA)
+    token = create_access_token(TEST_DATA)
 
-#     test_files = [file for file in Path(TEST_DOCS_DIR).iterdir()]
+    test_files = [file for file in Path(TEST_DOCS_DIR).iterdir()]
 
-#     files = [("files", open(file, "rb")) for file in test_files]
-#     response = client.post(
-#         "/documents/upload-s3/", files=files, headers={"Authorization": f"JWT {token}"}
-#     )
+    files = [("files", open(file, "rb")) for file in test_files]
+    response = client.post(
+        "/documents/upload-s3/", files=files, headers={"Authorization": f"JWT {token}"}
+    )
 
-#     assert response and response.status_code == 200
+    assert response and response.status_code == 200
 
-#     # Check existance of files on fake bucket
-#     uploaded_docs = [
-#         file.key for file in bucket.objects.filter(Prefix=f"{TEST_DATA.company_id}/")
-#     ]
+    # Check existance of files in the bucket
+    uploaded_docs = [
+        file.key for file in bucket.objects.filter(Prefix=f"{TEST_DATA.company_id}/")
+    ]
 
-#     for test_file in test_files:
-#         assert f"{TEST_DATA.company_id}/{test_file.name}" in uploaded_docs
+    for test_file in test_files:
+        # Retrieve saved file data from db
+        file_data = db.query(m.UploadedFile).filter_by(filename=test_file.name).first()
+        assert file_data.s3_relative_path in uploaded_docs
+
+    # Delete uploaded documents
+    bucket.objects.filter(Prefix=f"{TEST_DATA.company_id}/").delete()
 
 
 def test_check_file_format():
@@ -109,7 +114,7 @@ def test_save_file_info(db: Session):
     )
     file_id = save_file_info(db, file_info)
 
-    db_info = db.query(model.UploadedFile).get(file_id)
+    db_info = db.query(m.UploadedFile).get(file_id)
 
     assert db_info and db_info.hash == test_hash
 
