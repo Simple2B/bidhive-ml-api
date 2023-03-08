@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     AWS_REGION: str | None = None
     S3_BUCKET_NAME: str = "<None>"
     DATABASE_URI: str = "<None>"
+    OPENAI_API_KEY: str = "<secret_key>"
 
     class Config:
         env_file = ".env"

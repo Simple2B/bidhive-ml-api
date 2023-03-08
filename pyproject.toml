@@ -5,7 +5,7 @@ description = "ML service for Bidhive"
 authors = ["Danil Dvorchuk <dvorchyk.d.dev@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.12"
 fastapi = "^0.65.2"
 requests = "^2.25.1"
 uvicorn = "^0.15.0"
@@ -33,6 +33,12 @@ python-docx = "^0.8.11"
 docx2txt = "^0.8"
 pandas = "^1.5.3"
 s3fs = "^2023.1.0"
+openai = "^0.27.0"
+tiktoken = "^0.3.0"
+matplotlib = "^3.7.1"
+plotly = "^5.13.1"
+scipy = "^1.10.1"
+scikit-learn = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^5.0.4"

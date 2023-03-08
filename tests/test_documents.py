@@ -53,7 +53,7 @@ def test_docs_local_upload(client: TestClient):
 # NOTE: this test works on the real s3 bucket!!!
 # NOTE: don't run this test with active Celery and Rabbitmq (to prevent receiving of parsing task by Celery)
 # NOTE: please be careful with TEST_DATA.company id if you use this test on bucket with real data
-@pytest.mark.skip()
+@pytest.mark.skip
 def test_docs_s3_upload(client: TestClient, db: Session):
     # Create fake bucket on mocked client
     s3_resource = create_s3_resource()
