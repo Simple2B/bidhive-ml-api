@@ -2,10 +2,52 @@ version: "3.8"
 services:
   app:
     build: .
-    restart: always
+    restart: unless-stopped
     command: bash ./start_server.sh
     ports:
       - 127.0.0.1:8008:80
+    networks:
+      - bidhive-ml-api
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    restart: unless-stopped
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - bidhive-ml-api
+
+  redis:
+    image: redis
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:6377:6379
+    stdin_open: true
+    networks:
+      - bidhive-ml-api
+
+  db:
+    image: postgres:12
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USERNAME}
+    ports:
+      - 127.0.0.1:${DATABASE_LOCAL_PORT}:5432
+    restart: unless-stopped
+    networks:
+      - bidhive-ml-api
+    env_file:
+      - .env
 
 volumes:
   db_data:
+
+
+networks:
+  bidhive-ml-api:
+    driver: bridge
