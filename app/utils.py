@@ -4,7 +4,7 @@ import s3fs
 import pandas as pd
 from pathlib import Path
 
-from app.config import settings
+from app.config import settings, COLUMNS
 from app.logger import log
 from app import schema as s
 
@@ -47,7 +47,7 @@ def create_s3_resource():
         log(log.ERROR, "S3 bucket resource creation failed [%s]", err)
 
 
-def create_s3fs():
+def create_s3fs(asynchronous=False):
     """
     Function that creates S3FileSystem
 
@@ -56,7 +56,9 @@ def create_s3fs():
     """
     try:
         s3_fs = s3fs.S3FileSystem(
-            key=settings.AWS_ACCESS_KEY_ID, secret=settings.AWS_SECRET_ACCESS_KEY
+            key=settings.AWS_ACCESS_KEY_ID,
+            secret=settings.AWS_SECRET_ACCESS_KEY,
+            asynchronous=asynchronous,
         )
         return s3_fs
     except Exception as err:
@@ -64,6 +66,16 @@ def create_s3fs():
 
 
 def check_file_format(filename: str, format: str) -> bool:
+    """
+    Checks if the format of recieved file matches required format
+
+    Args:
+        filename (str): sting with name of file
+        format (str): required format. Example: ".docx"
+
+    Returns:
+        bool: True if required format matches file format, False otherwise
+    """
     file_format = Path(filename).suffix
 
     return bool(file_format == format)
@@ -103,7 +115,7 @@ def to_csv_on_s3(s3_fs: s3fs.S3FileSystem, df: pd.DataFrame, company_id: int):
 
 
 def get_csv_dataset(
-    s3_fs: s3fs.S3FileSystem, company_id: int, columns: list[str]
+    s3_fs: s3fs.S3FileSystem, company_id: int, columns: list[str] = COLUMNS
 ) -> pd.DataFrame:
     """
     Function that retrieve (or create if it is not exist) and then return company dataset
@@ -136,3 +148,43 @@ def get_csv_dataset(
     )
 
     return df
+
+
+# NOTE: Experimental function
+# async def async_get_csv_dataset(
+#     s3_fs: s3fs.S3FileSystem, company_id: int, columns: list[str] = COLUMNS
+# ) -> pd.DataFrame:
+#     """
+#     Async version of function get_csv_dataset
+
+#     Args:
+#         s3_fs (s3fs.S3FileSystem): S3FileSystem session
+#         company_id (int): id of user's company in Bidhive main app
+#         columns (list[str]): list of columns which should be present in dataset
+
+#     Returns:
+#         pd.DataFrame: company dataset in pandas DataFrame
+#     """
+
+#     # Path of dataset.csv on S3 bucket
+#     path_to_dataset = os.path.join(
+#         settings.S3_BUCKET_NAME, str(company_id), "dataset.csv"
+#     )
+#     # Check if it exists
+#     session = await s3_fs.set_session()
+#     csv_exist = s3_fs.exists(path_to_dataset)
+
+#     if not csv_exist:
+#         # Create new company dataset.csv file on s3
+#         df = pd.DataFrame(columns=columns)
+#         df.to_csv(s3_fs.open(path_to_dataset, mode="wb"))
+
+#     # Retrieve dataset.csv
+#     df = pd.read_csv(
+#         s3_fs.open(path_to_dataset, mode="rb"),
+#         index_col=0,
+#     )
+
+#     await session.close()
+
+#     return df

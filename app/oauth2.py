@@ -108,6 +108,11 @@ def get_user_info(request: Request) -> schema.UserInfo:
     """
     The function that allows to achieve user_info from valid access token
     Use this function for authorization in routes where any user has access
+    Args:
+        request (Request): user's request
+
+    Returns:
+        schema.UserInfo: user's data
     """
 
     token = get_token_from_header(request)

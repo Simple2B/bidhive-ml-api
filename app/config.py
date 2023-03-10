@@ -8,6 +8,15 @@ ABSOLUTE_DOCUMENTS_DIR_PATH = os.path.join(BASE_DIR, "uploaded_docs")
 
 TEST_DOCS_DIR = os.path.dirname("tests/test_files/")
 
+# List of columns for companies datasets
+COLUMNS = [
+    "question",
+    "answer",
+    "file_info_id",
+    "question_embedding",
+    # "answer_embadding",
+]
+
 
 class Settings(BaseSettings):
     JWT_SECRET: str = "<None>"

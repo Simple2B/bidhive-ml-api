@@ -1,14 +1,15 @@
 import os
 import docx2txt
+import pytest
 import pandas as pd
 from s3fs import S3FileSystem
 from moto import mock_s3
 from sqlalchemy.orm import Session
 
 from app.utils import create_s3fs, get_csv_dataset, to_csv_on_s3
-from app.config import settings
+from app.config import settings, COLUMNS
 from app import schema as s, model as m
-from app.service.parsing import parse_text, COLUMNS, parse_document
+from app.service.parsing import parse_text, parse_document
 from app.service.documents import save_file_info
 
 
@@ -49,6 +50,8 @@ def test_to_csv_on_s3(s3: S3FileSystem):
     assert s3.exists(DATASET_PATH)
 
 
+# NOTE: skip this test because it run parse_document() function that use OpeanAI
+@pytest.mark.skip
 def test_parse_document(s3: S3FileSystem, db: Session):
     test_s3_path = os.path.join(
         settings.S3_BUCKET_NAME, str(TEST_DATA.company_id), "testname"

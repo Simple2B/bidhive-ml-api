@@ -7,18 +7,12 @@ from s3fs import S3FileSystem
 
 from app.logger import log
 from app.utils import get_csv_dataset, to_csv_on_s3
-from app.config import settings
+from app.config import settings, COLUMNS
 from app import model as m
+from app.service.embeddings import get_embeddings_for_df
 
 
 TAGS = [("<q[0-9]*>", "</q[0-9]*>"), ("<a[0-9]*>", "</a[0-9]*>")]
-COLUMNS = [
-    "question",
-    "answer",
-    "file_info_id",
-    # "question_embedding",
-    # "answer_embadding",
-]
 
 
 # TODO: The parsing logic would not work correctly if answer would be appear in text earlier than question
@@ -76,7 +70,7 @@ def parse_text(file_info_id: int, text: str) -> pd.DataFrame:
                     )
 
     # Create dataframe with results and drop all rows where answer is abcent
-    results_df = pd.DataFrame(data=dict_with_res.values(), columns=COLUMNS)
+    results_df = pd.DataFrame(data=dict_with_res.values(), columns=COLUMNS[:3])
     results_df.dropna(subset=["answer"], inplace=True)
     return results_df
 
@@ -99,6 +93,9 @@ def parse_document(file_data: m.UploadedFile, s3_fs: S3FileSystem):
     df = get_csv_dataset(s3_fs, file_data.company_id, COLUMNS)
     results_df = parse_text(file_data.id, doc)
 
+    # Create embeddings for questions and answers
+    results_df = get_embeddings_for_df(results_df)
+
     # Append dataset with new information to existing company dataset
     new_df = pd.concat([df, results_df])
     new_df.reset_index(drop=True, inplace=True)
@@ -109,7 +106,7 @@ def parse_document(file_data: m.UploadedFile, s3_fs: S3FileSystem):
     log(log.INFO, "Parsing succeed for [%s]", file_data.filename)
 
 
-# To test different parsing algorithms
+# NOTE: To test different parsing algorithms
 def parse_local_document():
     """Just a function for local testing of documents parsing"""
     filename = "tests/test_files/Expression of Interest Form - Tier 3 Weight Management Service.docx"
